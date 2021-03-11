@@ -75,29 +75,24 @@ const char MAIN_page[] PROGMEM = R"=====(
 </div>
 <script>
 
-//while set interval is acting take time value wait for that amount and then display the new graph value/variable value
+  InitWebSocket()
+  function InitWebSocket()
+  {
+    websock = new WebSocket('ws://'+window.location.hostname+':88/');
+    websock.onmessage=function(evt)
+    {
+       JSONobj = JSON.parse(evt.data);
+       var temp = parseInt(JSONobj.temp);
+       var pressure = parseInt(JSONobj.pressure);
+       var spl = parseInt(JSONobj.spl);
+       document.getElementById("temp").innerHTML = temp;
+       document.getElementById("pressure").innerHTML = pressure;
+       document.getElementById("soundLevel").innerHTML = spl;
+       
+    } // end of onmessage
+      
+  } // end of InıtWebSocket
 
-setInterval(function() {
-  getTemp();
-  sleep(100);
-  getPressure();
-  sleep(100);
-  getSoundLevel();
-
-}, 100); //2000mSeconds update rate
-
-
-function getData() {
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("data").innerHTML =
-      this.responseText;
-    }
-  };
-  xhttp.open("GET", "readData", true);
-  xhttp.send();
-}
 
 </script>
 </body>

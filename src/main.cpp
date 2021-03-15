@@ -19,11 +19,11 @@
 #include <ArduinoJson.h>
 
 //Enter your SSID and PASSWORD
-const char* ssid = "DivorceHousing 16";
-const char* password = "schipholweg101";
+//const char* ssid = "DivorceHousing 16";
+//const char* password = "schipholweg101";
 
-//const char* ssid = "Mayht Network";
-//const char* password = "bloemenstal";
+const char* ssid = "Mayht Network";
+const char* password = "bloemenstal";
 
 
 WebServer server(80);
@@ -74,15 +74,16 @@ String handleTemp() {
 }
 
 String handlePressure() {
-  unsigned int data[4];
+  unsigned int data[6];
   Wire.beginTransmission(Addr);
   Wire.write(0x26);
   Wire.write(0x39);
   Wire.endTransmission();
-  vTaskDelay(  10 / portTICK_PERIOD_MS );
+  vTaskDelay(  50 / portTICK_PERIOD_MS );
   Wire.beginTransmission(Addr);
   Wire.write(0x00);
   Wire.endTransmission();
+  vTaskDelay(  50 / portTICK_PERIOD_MS );
   Wire.requestFrom(Addr, 4);
   if (Wire.available() == 4)
   {
@@ -91,8 +92,8 @@ String handlePressure() {
     data[2] = Wire.read();
     data[3] = Wire.read();
   }
-  long pres = (((long)data[1] * (long)65536) + (data[2] * 256) + (data[3] & 0xF0)) / 16;
-  float pressure = (pres / 4.0) / 1000.0;
+  double pres = (((long)data[1] * (long)65536) + (data[2] * 256) + (data[3] & 0xF0)) / 16;
+  double pressure = (pres / 4.0) ;// 1000.0;
   String pressure_sensor_value = String(pressure);
   return pressure_sensor_value;
 }
@@ -114,7 +115,8 @@ DynamicJsonDocument JSONtxt_fast(){
   DynamicJsonDocument doc(265);
   doc["temp"] = handleTemp();
   doc["pressure"]   = handlePressure();
-  doc["spl"] = handleMic();
+  //doc["spl"] = handleMic();
+  doc["spl"] = 0;
   //String data;
   //serializeJson(doc, data);
   //Serial.println(data);
@@ -166,11 +168,12 @@ void core1_task(void *pvParameters){  //task working on core 1 of ESP32
   for(;;){
     webSocket.loop();
     server.handleClient();
-    //serializeJson(JSONtxt_fast(),jsonString); //send actual data
-    serializeJson(randomData(),jsonString); //send random data for testing purposes
+    serializeJson(JSONtxt_fast(),jsonString); //send actual data
+    //serializeJson(randomData(),jsonString); //send random data for testing purposes
     Serial.println(jsonString);
     webSocket.broadcastTXT(jsonString);
     jsonString.clear();
+    //vTaskDelay(  100 / portTICK_PERIOD_MS ); // sample speed ~30Hz
     vTaskDelay(  33 / portTICK_PERIOD_MS ); // sample speed ~30Hz
     }
 }

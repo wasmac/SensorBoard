@@ -11,7 +11,7 @@ const uint8_t kMatrixHeight = 16;                         // Matrix height
 #define BAR_WIDTH      (kMatrixWidth  / (NUM_BANDS - 1))  // If width >= 8 light 1 LED width per bar, >= 16 light 2 LEDs width bar etc
 #define TOP            (kMatrixHeight - 0)                // Don't allow the bars to go offscreen
 #define SERPENTINE     true                               // Set to false if you're LEDS are connected end to end, true if serpentine
-#define NUM_BANDS       16            // To change this, you will need to change the bunch of if statements describing the mapping from bins to bands
+#define NUM_BANDS       8            // To change this, you will need to change the bunch of if statements describing the mapping from bins to bands
 
 
 class micFFT
@@ -23,12 +23,12 @@ public:
     void calc_FFT();
     void FFT_to_bands();
     void FFT_to_bands_height();
-    void print_values();
+    void FFT_bands_decay();
 private:
     unsigned int sampling_period_us;
     byte peak[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};              // The length of these arrays must be >= NUM_BANDS
     int oldBarHeights[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-    int bandValues[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    int bandValues[8] = {0,0,0,0,0,0,0,0};
     double vReal[SAMPLES];
     double vImag[SAMPLES];
     unsigned long newTime;

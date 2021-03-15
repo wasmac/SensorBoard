@@ -39,7 +39,7 @@ void micFFT::FFT_to_bands()
   for (int i = 2; i < (SAMPLES/2); i++){       // Don't use sample 0 and only first SAMPLES/2 are usable. Each array element represents a frequency bin and its value the amplitude.
     if (vReal[i] > NOISE) {                    // Add a crude noise filter
 
-    /*8 bands, 12kHz top band
+    //8 bands, 12kHz top band
       if (i<=3 )           bandValues[0]  += (int)vReal[i];
       if (i>3   && i<=6  ) bandValues[1]  += (int)vReal[i];
       if (i>6   && i<=13 ) bandValues[2]  += (int)vReal[i];
@@ -47,9 +47,9 @@ void micFFT::FFT_to_bands()
       if (i>27  && i<=55 ) bandValues[4]  += (int)vReal[i];
       if (i>55  && i<=112) bandValues[5]  += (int)vReal[i];
       if (i>112 && i<=229) bandValues[6]  += (int)vReal[i];
-      if (i>229          ) bandValues[7]  += (int)vReal[i];*/
+      if (i>229          ) bandValues[7]  += (int)vReal[i];
 
-    //16 bands, 12kHz top band
+    /*//16 bands, 12kHz top band
       if (i<=2 )           bandValues[0]  += (int)vReal[i];
       if (i>2   && i<=3  ) bandValues[1]  += (int)vReal[i];
       if (i>3   && i<=5  ) bandValues[2]  += (int)vReal[i];
@@ -65,7 +65,7 @@ void micFFT::FFT_to_bands()
       if (i>97  && i<=135) bandValues[12] += (int)vReal[i];
       if (i>135 && i<=189) bandValues[13] += (int)vReal[i];
       if (i>189 && i<=264) bandValues[14] += (int)vReal[i];
-      if (i>264          ) bandValues[15] += (int)vReal[i];
+      if (i>264          ) bandValues[15] += (int)vReal[i];*/
     }
   }
 }
@@ -85,10 +85,18 @@ void micFFT::FFT_to_bands_height()
     if (barHeight > peak[band]) {
       peak[band] = min(TOP, barHeight);
     }
-    Serial.println(" ");
-    Serial.print("band: ");
+    Serial.print("band:");
     Serial.print(band);
-    Serial.print("       height:");
-    Serial.println(barHeight);
+    Serial.print(" height:");
+    Serial.print(barHeight);
+    Serial.print(" ");
     }
+    Serial.println(" ");
+}
+
+
+void micFFT::FFT_bands_decay()
+{
+    for (byte band = 0; band < NUM_BANDS; band++)
+      if (peak[band] > 0) peak[band] -= 1;
 }

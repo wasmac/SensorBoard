@@ -141,6 +141,9 @@ header img {
       <div class="card" style="background: rgb(255, 255, 255);     width: 600px;  height:350px;">
         <canvas id="myChartSPL" style="width: 100%; height: 100%;"></canvas>
       </div>
+      <div class="card" style="background: rgb(255, 255, 255);     width: 600px;  height:350px;">
+        <canvas id="myChartFFT" style="width: 100%; height: 100%;"></canvas>
+      </div>
   </div>
 
 
@@ -149,7 +152,7 @@ header img {
 
 <script>
 
-  let myChartTemp, myChartPressure, myChartSPL;
+  let myChartTemp, myChartPressure, myChartSPL, myChartFFT;
   var maxDataPoints = 90;
 
   function removeTempData(){
@@ -188,6 +191,21 @@ header img {
     myChartSPL.data.datasets[0].data.push(data);
     myChartSPL.update();
   }
+
+  function removeFFTData(){
+    myChartFFT.data.labels.shift();
+    myChartFFT.data.datasets[0].data.shift();
+  }
+
+  function addFFTData(label, data) {
+    let tempName = "myChartFFT";
+    if(myChartTemp.data.labels.length > maxDataPoints) removeFFTData();
+    myChartFFT.data.labels.push(label);
+    myChartFFT.data.datasets[0].data.push(data);
+    myChartFFT.update();
+  }
+
+
   InitWebSocket()
   function InitWebSocket()
   {
@@ -327,6 +345,48 @@ myChartSPL = new Chart(ctx2, {
 				}
     }
 });
+
+
+let ctx3 = document.getElementById('myChartFFT').getContext('2d');
+myChartFFT = new Chart(ctx3, {
+    type: 'bar',
+    data: {
+        labels: [0],
+        datasets: [{
+            label: 'Freq',
+            data: [0],
+            backgroundColor: [],
+            borderColor: [],
+            borderWidth: 1,
+            fill: false
+        }]
+    },
+    options: {
+      title: {
+        display: false
+      },
+      legend: {
+        display: false
+      },
+      scales: {
+					xAxes: [{
+						scaleLabel: {
+							display: true,
+							labelString: 'Amplitude'
+						}
+					}],
+					yAxes: [{
+						stacked: true,
+						scaleLabel: {
+							display: true,
+							labelString: 'hPa'
+						}
+					}]
+				}
+    }
+});
+
+
 </script>
 </body>
 </html>

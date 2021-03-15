@@ -18,16 +18,19 @@
 #include <WebSocketsServer.h>
 #include <ArduinoJson.h>
 
-//Enter your SSID and PASSWORD
-//const char* ssid = "DivorceHousing 16";
-//const char* password = "schipholweg101";
+#include <micFFT.h>
 
-const char* ssid = "Mayht Network";
-const char* password = "bloemenstal";
+//Enter your SSID and PASSWORD
+const char* ssid = "DivorceHousing 17";
+const char* password = "schipholweg101";
+
+//const char* ssid = "Mayht Network";
+//const char* password = "bloemenstal";
 
 
 WebServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(88);
+micFFT mymic;
 
 
 #define MIC_PIN 34
@@ -115,8 +118,7 @@ DynamicJsonDocument JSONtxt_fast(){
   DynamicJsonDocument doc(265);
   doc["temp"] = handleTemp();
   doc["pressure"]   = handlePressure();
-  //doc["spl"] = handleMic();
-  doc["spl"] = 0;
+  doc["spl"] = handleMic();
   //String data;
   //serializeJson(doc, data);
   //Serial.println(data);
@@ -157,8 +159,15 @@ DynamicJsonDocument randomData(){
 void core0_task(void *pvParameters){    
   (void) pvParameters;                                  //task working on core 0 of ESP32 
   //SetupMAPL3115A2();
+  mymic.setup();
   for(;;){
-    vTaskDelay(  1000 / portTICK_PERIOD_MS );
+    mymic.reset_samples();
+    mymic.sample();
+    mymic.calc_FFT();
+    mymic.FFT_to_bands();
+    mymic.FFT_to_bands_height();
+    vTaskDelay(  60 / portTICK_PERIOD_MS );
+    mymic.FFT_bands_decay();
     }  
 }
 
@@ -168,9 +177,9 @@ void core1_task(void *pvParameters){  //task working on core 1 of ESP32
   for(;;){
     webSocket.loop();
     server.handleClient();
-    serializeJson(JSONtxt_fast(),jsonString); //send actual data
-    //serializeJson(randomData(),jsonString); //send random data for testing purposes
-    Serial.println(jsonString);
+    //serializeJson(JSONtxt_fast(),jsonString); //send actual data
+    serializeJson(randomData(),jsonString); //send random data for testing purposes
+    //Serial.println(jsonString);
     webSocket.broadcastTXT(jsonString);
     jsonString.clear();
     //vTaskDelay(  100 / portTICK_PERIOD_MS ); // sample speed ~30Hz

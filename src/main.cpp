@@ -1,168 +1,31 @@
+#include <main.h>
+#include <index.h>                              //Web page header file
 
-#include <stdlib.h>
-
-#include <Wire.h>
-#include <Adafruit_MPL3115A2.h>
-#include <math.h>
-
-//Web page header file
-#include <index.h>
-
-//For mic
-#include <Filter.h>
-#include <MegunoLink.h>
-
-//For wifi
-#include <WiFi.h>
-#include <WebServer.h>
-#include <WebSocketsServer.h>
-#include <ArduinoJson.h>
-
-#include <micFFT.h>
-
-//Enter your SSID and PASSWORD
-//const char* ssid = "DivorceHousing 17";
-//const char* password = "schipholweg101";
-
-const char* ssid = "Mayht Network";
-const char* password = "bloemenstal";
-
-
-WebServer server(80);
-WebSocketsServer webSocket = WebSocketsServer(88);
-micFFT mymic;
-
-
-IPAddress local_IP(192, 168, 2, 8);
-IPAddress gateway(192, 168, 2, 1);
-IPAddress subnet(255, 255, 0, 0);
-IPAddress primaryDNS(8, 8, 8, 8); 
-IPAddress secondaryDNS(8, 8, 4, 4);
-
-
-#define MIC_PIN 34
-#define NOISE 550
-//Adafruit_MPL3115A2 baro = Adafruit_MPL3115A2();
-ExponentialFilter<long> ADC_Filter(5,0); // instantiate the filter class for smoothing the raw audio signal
-int lvl = 0, minLvl = 0, maxLvl = 300; // define the variables needed for the audio levels
-
-#define Addr 0x60
-
+String jsonString;                              //String used to send data to server through websockets
 
 void handleRoot() {
- String s = MAIN_page; //Read HTML contents
- server.send(200, "text/html", s); //Send web page
+ String s = MAIN_page;                          //Read HTML contents
+ server.send(200, "text/html", s);              //Send web page
 }
 
-
-
-
-String handleTemp() {
-  unsigned int data[6];
-  Wire.beginTransmission(Addr);
-  Wire.write(0x26);
-  Wire.write(0xB9);
-  Wire.endTransmission();
-  vTaskDelay(  10 / portTICK_PERIOD_MS );
-  Wire.beginTransmission(Addr);
-  Wire.write(0x00);
-  Wire.endTransmission();
-  Wire.requestFrom(Addr, 6);
-  if (Wire.available() == 6)
-  {
-    data[0] = Wire.read();
-    data[1] = Wire.read();
-    data[2] = Wire.read();
-    data[3] = Wire.read();
-    data[4] = Wire.read();
-    data[5] = Wire.read();
-  }
-  int temp = ((data[4] * 256) + (data[5] & 0xF0)) / 16;
-  float cTemp = (temp / 16.0);
-  String temp_sensor_value = String(cTemp);
-  return temp_sensor_value;
-}
-
-double handlePressure() {
-  unsigned int data[6];
-  Wire.beginTransmission(Addr);
-  Wire.write(0x26);
-  Wire.write(0x39);
-  Wire.endTransmission();
-  vTaskDelay(  50 / portTICK_PERIOD_MS );
-  Wire.beginTransmission(Addr);
-  Wire.write(0x00);
-  Wire.endTransmission();
-  vTaskDelay(  50 / portTICK_PERIOD_MS );
-  Wire.requestFrom(Addr, 4);
-  if (Wire.available() == 4)
-  {
-    data[0] = Wire.read();
-    data[1] = Wire.read();
-    data[2] = Wire.read();
-    data[3] = Wire.read();
-  }
-  double pres = (((long)data[1] * (long)65536) + (data[2] * 256) + (data[3] & 0xF0)) / 16;
-  double pressure = (pres / 4.0)/ 1000.0;
-  //String pressure_sensor_value = String(pressure);
-  //return pressure_sensor_value;
-  return pressure;
-}
-
-
-
-String handleMic(){
-  int n;
-  n = analogRead(MIC_PIN);
-  n = abs(1023 - n);  // remove the MX9614 bias of 1.25VDC
-  n = (n <= NOISE) ? 0 : abs(n - NOISE);  // hard limit noise/hum
-  ADC_Filter.Filter(n);  // apply the exponential filter to smooth the raw signal
-  lvl = ADC_Filter.Current();
-  String sound_level = String(lvl);
-  return sound_level;
-}
-
-
-DynamicJsonDocument JSONtxt_fast(){
-  DynamicJsonDocument doc(265);
-  static float x_prev;
-  doc["temp"] = handleTemp();
-  double x = handlePressure();
-  if (x < 180 && x > 10) x_prev = x;
+DynamicJsonDocument JSONtxt_fast(){             //Convert data from sensors to Json type document
+  DynamicJsonDocument doc(265);                 //Allocate some heap for Json doc 
+  static float x_prev;                          
+  doc["temp"] = mpl.handleTemp();               //Read temperature  
+  double x = mpl.handlePressure();              //Read preassure 
+  if (x < 180 && x > 10) x_prev = x;            //Problems with pressure readings- only temporary solution
   if (x >= 180 || x <= 10) x = x_prev;
-  String pressure_sensor_value = String(x);
-  doc["pressure"]   = pressure_sensor_value;
-  doc["spl"] = handleMic();
-
-  //String data;
-  //serializeJson(doc, data);
-  //Serial.println(data);
-  return doc;
-  //return "{\"temp\":\""+handleTemp()+"\",\"pressure\":\""+handlePressure()+"\",\"spl\":\""+handleMic()+"\"}";
+  String pressure_sensor_value = String(x);     
+  doc["pressure"]   = pressure_sensor_value;    //Add pressure to Json
+  doc["spl"] = spl.handleMic();                 //Read SPL
+  return doc;                                   //Return Json format data
 }
 
-
-
-void SetupMAPL3115A2(){
-  Wire.beginTransmission(Addr);
-  Wire.write(0x26);
-  Wire.write(0xB9);
-  Wire.endTransmission();
-  Wire.beginTransmission(Addr);
-  Wire.write(0x13);
-  Wire.write(0x07);
-  Wire.endTransmission();
-  vTaskDelay(  100 / portTICK_PERIOD_MS );
-}
-
-
-String jsonString;
-
-DynamicJsonDocument randomData(){
-  DynamicJsonDocument doc(265);
-  int x;
-  x = rand() % 10 + 1;
-  doc["temp"] = x;
+DynamicJsonDocument randomData(){               //Convert randomly generated data to Json document
+  DynamicJsonDocument doc(265);                 //Allocate memory in heap for Json doc
+  int x;    
+  x = rand() % 10 + 1;                          //Generates random number from 0-10
+  doc["temp"] = x;                              //Adds generated number to Json doc
   x = rand() % 10 + 1;
   doc["pressure"]   = x;
   x = rand() % 10 + 1;
@@ -170,70 +33,58 @@ DynamicJsonDocument randomData(){
   return doc;
 }
 
-
-void core0_task(void *pvParameters){    
-  (void) pvParameters;                               //task working on core 0 of ESP32 
-  //SetupMAPL3115A2();
-  //mymic.setup();
-  for(;;){
-    
+void core0_task(void *pvParameters){            //Task working on core 0 of ESP32
+  (void) pvParameters;                          //Takes parameters form Setup function for given task
+  for(;;){                                      //Do something here
     vTaskDelay(  portMAX_DELAY );
-    //mymic.FFT_bands_decay();
     }  
 }
 
-void core1_task(void *pvParameters){  //task working on core 1 of ESP32
-     (void) pvParameters;  
-     SetupMAPL3115A2();     
-     mymic.setup();        
+void core1_task(void *pvParameters){            //Task working on core 1 of ESP32
+     (void) pvParameters;                       //Takes parameters form Setup function for given task
+     fft.setup();                               //Setup of fft objcet -> micFFT::setup()
+     mpl.setup();                               //Setup of mpl object -> mpl3115A2::setup()
   for(;;){
-    webSocket.loop();
-    server.handleClient();
-    serializeJson(JSONtxt_fast(),jsonString); //send actual data
-    //serializeJson(randomData(),jsonString); //send random data for testing purposes
-    //Serial.println(jsonString);
+    webSocket.loop();                           //Handler of websocket data sending
+    server.handleClient();                      //Handler of Clients on server
+    serializeJson(JSONtxt_fast(),jsonString);   //Serialize data from sensors (must be done before sendig it to server)
+    //serializeJson(randomData(),jsonString);   //Serialize random data for testing purposes
+    webSocket.broadcastTXT(jsonString);         //Sends data in Json format to the server through websockets
+    jsonString.clear();                         //Clear the string from contents
+    fft.reset_samples();                        //FFT stuff
+    fft.sample();
+    fft.calc_FFT();
+    fft.FFT_to_bands();
+    serializeJson(fft.FFT_to_bands_height(),
+                  jsonString);
     webSocket.broadcastTXT(jsonString);
     jsonString.clear();
-    mymic.reset_samples();
-    mymic.sample();
-    mymic.calc_FFT();
-    mymic.FFT_to_bands();
-    serializeJson(mymic.FFT_to_bands_height(),jsonString);
-    webSocket.broadcastTXT(jsonString);
-    jsonString.clear();
-    vTaskDelay(  33 / portTICK_PERIOD_MS ); // sample speed ~30Hz
+    vTaskDelay(  33 / portTICK_PERIOD_MS );     //Delay for 33ms
     }
 }
 
-
-
-
-
-
-
-
 void setup() {
-  Wire.begin();
-  Serial.begin(115200);  
+  Serial.begin(115200);                         //Start serial communication
   Serial.println("Welcome to WEB sensor board");
-
   Serial.println();
   Serial.println("Booting Sketch...");
-     
   WiFi.begin(ssid,password);
-  while(WiFi.status() != WL_CONNECTED)
+  while(WiFi.status() != WL_CONNECTED)          //Start Wifi tasks
   {
     Serial.println(".");
     delay(500);  
   }
 
-  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))  Serial.println("STA Failed to configure");
-  WiFi.mode(WIFI_STA);
+  if (!WiFi.config(local_IP, gateway, subnet,   //Set server IP address
+                  primaryDNS, secondaryDNS)){
+    Serial.println("STA Failed to configure");
+  }
+  WiFi.mode(WIFI_STA);                          //Set WiFi mode to STA
   Serial.println(" IP address: ");
   Serial.println(WiFi.localIP());
-  server.on("/", handleRoot);
-  server.begin();
-  webSocket.begin();
+  server.on("/", handleRoot);                   //Send webpage contet
+  server.begin();                               //Begin the server task
+  webSocket.begin();                            //Begin websocket task
   Serial.println("HTTP server started");
 
   vTaskDelay(  500 / portTICK_PERIOD_MS );         
@@ -241,32 +92,22 @@ void setup() {
 //vTaskDelete(NULL);
 
 xTaskCreatePinnedToCore(
-              core0_task,       /* Task function. */
-              "core0",          /* String with name of task. */
-              2048,            /* Stack size in bytes. */
-              NULL,             /* Parameter passed as input of the task */
-              2,                /* Priority of the task. */
-              NULL,           /* Task handle. */
-              0);               /* Core */     
+              core0_task,                       /* Task function. */
+              "core0",                          /* String with name of task. */
+              2048,                             /* Stack size in bytes. */
+              NULL,                             /* Parameter passed as input of the task */
+              2,                                /* Priority of the task. */
+              NULL,                             /* Task handle. */
+              0);                               /* Core */     
 
   xTaskCreatePinnedToCore(
-              core1_task,       /* Task function. */
-              "core1",          /* String with name of task. */
-              10000,            /* Stack size in bytes. */
-              NULL,             /* Parameter passed as input of the task */
-              2,                /* Priority of the task. */
-              NULL,           /* Task handle. */
-              1);               /* Core */ 
-
-
-
-
-//enableCore0WDT(); enableCore1WDT();
-//esp_task_wdt_init(TWDT_TIMEOUT_S, false);
-
-
-
-
+              core1_task,                       /* Task function. */
+              "core1",                          /* String with name of task. */
+              10000,                            /* Stack size in bytes. */
+              NULL,                             /* Parameter passed as input of the task */
+              2,                                /* Priority of the task. */
+              NULL,                             /* Task handle. */
+              1);                               /* Core */ 
 }
 
 
@@ -274,9 +115,4 @@ xTaskCreatePinnedToCore(
 
 void loop() {
   vTaskDelay(portMAX_DELAY);
-  //webSocket.loop();
-  //server.handleClient();
-  //delay(1);
-  //jsonString = JSONtxt(); // ta dziwka xD
-  //webSocket.broadcastTXT(jsonString); //not this
 }

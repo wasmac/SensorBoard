@@ -154,6 +154,7 @@ header img {
 
   let myChartTemp, myChartPressure, myChartSPL, myChartFFT;
   var maxDataPoints = 90;
+  let FFTData = [0,0,0,0,0,0,0,,0,0,0,0,0,0,0,0];
 
   function removeTempData(){
     myChartTemp.data.labels.shift();
@@ -192,38 +193,46 @@ header img {
     myChartSPL.update();
   }
 
-  function removeFFTData(){
-    myChartFFT.data.labels.shift();
-    myChartFFT.data.datasets[0].data.shift();
-  }
-
-  function addFFTData(label, data) {
-    let tempName = "myChartFFT";
-    if(myChartTemp.data.labels.length > maxDataPoints) removeFFTData();
-    myChartFFT.data.labels.push(label);
-    myChartFFT.data.datasets[0].data.push(data);
-    myChartFFT.update();
-  }
 
 
   InitWebSocket()
   function InitWebSocket()
   {
+    let prop = "temp";
+    let ans = "";
+    let i;
+    let tempVal;
     websock = new WebSocket('ws://'+window.location.hostname+':88/');
     websock.onmessage=function(evt)
     {
-       JSONobj = JSON.parse(evt.data);
-       var Temp = parseInt(JSONobj.temp);
-       var Pressure = parseInt(JSONobj.pressure);
-       var Spl = parseInt(JSONobj.spl);
-       document.getElementById("temp").innerHTML = Temp;
-       document.getElementById("pressure").innerHTML = Pressure;
-       document.getElementById("soundLevel").innerHTML = Spl;
-       var today = new Date();
-       var t = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
-       addTempData(t, Temp);
-       addPressureData(t, Pressure);
-       addSPLData(t, Spl);
+      JSONobj = JSON.parse(evt.data);
+      if(JSONobj.hasOwnProperty("temp")){
+        ans = "C, Pa, SPL";
+        console.log(ans);
+        var Temp = parseInt(JSONobj.temp);
+        var Pressure = parseInt(JSONobj.pressure);
+        var Spl = parseInt(JSONobj.spl);
+        document.getElementById("temp").innerHTML = Temp;
+        document.getElementById("pressure").innerHTML = Pressure;
+        document.getElementById("soundLevel").innerHTML = Spl;
+        var today = new Date();
+        var t = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+        addTempData(t, Temp);
+        addPressureData(t, Pressure);
+        addSPLData(t, Spl);
+      }else if(JSONobj.hasOwnProperty("band")){
+        ans = "FFT";
+        console.log(ans);
+        for (i in JSONobj.band){
+          tempVal = parseInt(JSONobj.barHeight[i]);
+          console.log(tempVal);
+          FFTData[i] = tempVal;
+        }
+        myChartFFT.data.datasets[0].data = FFTData;
+        console.log(FFTData);
+        myChartFFT.update();
+      }
+
     } // end of onmessage
       
   } // end of InıtWebSocket
@@ -346,19 +355,34 @@ myChartSPL = new Chart(ctx2, {
     }
 });
 
-
 let ctx3 = document.getElementById('myChartFFT').getContext('2d');
 myChartFFT = new Chart(ctx3, {
     type: 'bar',
     data: {
-        labels: [0],
+        labels: ["40Hz", "59Hz", "86Hz", "125Hz", "183Hz", "268Hz", "392Hz", "573Hz", "838Hz", "1226Hz", "1793Hz", "2622Hz", "3835Hz", "5609Hz", "8204Hz", "=>1200Hz"],
         datasets: [{
-            label: 'Freq',
-            data: [0],
-            backgroundColor: [],
+            label: 'FFT',
+            data: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            backgroundColor: [                
+                'rgba(255, 99, 132, 0.2)',
+                'rgba(54, 162, 235, 0.2)',
+                'rgba(255, 206, 86, 0.2)',
+                'rgba(75, 192, 192, 0.2)',
+                'rgba(153, 102, 255, 0.2)',
+                'rgba(153, 102, 215, 0.2)',
+                'rgba(153, 102, 165, 0.2)',
+                'rgba(255, 159, 64, 0.2)',
+                'rgba(255, 99, 2, 0.2)',
+                'rgba(54, 162, 111, 0.2)',
+                'rgba(255, 206, 222, 0.2)',
+                'rgba(75, 192, 1, 0.2)',
+                'rgba(153, 102, 12, 0.2)',
+                'rgba(153, 102, 3, 0.2)',
+                'rgba(153, 102, 32, 0.2)',
+                'rgba(255, 159, 55, 0.2)'
+                ],
             borderColor: [],
-            borderWidth: 1,
-            fill: false
+            borderWidth: 1
         }]
     },
     options: {
@@ -372,20 +396,23 @@ myChartFFT = new Chart(ctx3, {
 					xAxes: [{
 						scaleLabel: {
 							display: true,
-							labelString: 'Amplitude'
+							labelString: 'Freq'
 						}
 					}],
 					yAxes: [{
+            ticks: {
+                    beginAtZero: true,
+                    max: 16
+                },
 						stacked: true,
 						scaleLabel: {
 							display: true,
-							labelString: 'hPa'
+							labelString: 'dB'
 						}
 					}]
 				}
     }
 });
-
 
 </script>
 </body>

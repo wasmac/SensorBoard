@@ -21,16 +21,23 @@
 #include <micFFT.h>
 
 //Enter your SSID and PASSWORD
-const char* ssid = "DivorceHousing 17";
-const char* password = "schipholweg101";
+//const char* ssid = "DivorceHousing 17";
+//const char* password = "schipholweg101";
 
-//const char* ssid = "Mayht Network";
-//const char* password = "bloemenstal";
+const char* ssid = "Mayht Network";
+const char* password = "bloemenstal";
 
 
 WebServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(88);
 micFFT mymic;
+
+
+IPAddress local_IP(192, 168, 2, 8);
+IPAddress gateway(192, 168, 2, 1);
+IPAddress subnet(255, 255, 0, 0);
+IPAddress primaryDNS(8, 8, 8, 8); 
+IPAddress secondaryDNS(8, 8, 4, 4);
 
 
 #define MIC_PIN 34
@@ -76,7 +83,7 @@ String handleTemp() {
   return temp_sensor_value;
 }
 
-String handlePressure() {
+double handlePressure() {
   unsigned int data[6];
   Wire.beginTransmission(Addr);
   Wire.write(0x26);
@@ -96,9 +103,10 @@ String handlePressure() {
     data[3] = Wire.read();
   }
   double pres = (((long)data[1] * (long)65536) + (data[2] * 256) + (data[3] & 0xF0)) / 16;
-  double pressure = (pres / 4.0) ;// 1000.0;
-  String pressure_sensor_value = String(pressure);
-  return pressure_sensor_value;
+  double pressure = (pres / 4.0)/ 1000.0;
+  //String pressure_sensor_value = String(pressure);
+  //return pressure_sensor_value;
+  return pressure;
 }
 
 
@@ -114,11 +122,18 @@ String handleMic(){
   return sound_level;
 }
 
+
 DynamicJsonDocument JSONtxt_fast(){
   DynamicJsonDocument doc(265);
+  static float x_prev;
   doc["temp"] = handleTemp();
-  doc["pressure"]   = handlePressure();
+  double x = handlePressure();
+  if (x < 180 && x > 10) x_prev = x;
+  if (x >= 180 || x <= 10) x = x_prev;
+  String pressure_sensor_value = String(x);
+  doc["pressure"]   = pressure_sensor_value;
   doc["spl"] = handleMic();
+
   //String data;
   //serializeJson(doc, data);
   //Serial.println(data);
@@ -157,32 +172,35 @@ DynamicJsonDocument randomData(){
 
 
 void core0_task(void *pvParameters){    
-  (void) pvParameters;                                  //task working on core 0 of ESP32 
+  (void) pvParameters;                               //task working on core 0 of ESP32 
   //SetupMAPL3115A2();
-  mymic.setup();
+  //mymic.setup();
   for(;;){
-    mymic.reset_samples();
-    mymic.sample();
-    mymic.calc_FFT();
-    mymic.FFT_to_bands();
-    mymic.FFT_to_bands_height();
-    vTaskDelay(  60 / portTICK_PERIOD_MS );
-    mymic.FFT_bands_decay();
+    
+    vTaskDelay(  portMAX_DELAY );
+    //mymic.FFT_bands_decay();
     }  
 }
 
 void core1_task(void *pvParameters){  //task working on core 1 of ESP32
      (void) pvParameters;  
-     SetupMAPL3115A2();             
+     SetupMAPL3115A2();     
+     mymic.setup();        
   for(;;){
     webSocket.loop();
     server.handleClient();
-    //serializeJson(JSONtxt_fast(),jsonString); //send actual data
-    serializeJson(randomData(),jsonString); //send random data for testing purposes
+    serializeJson(JSONtxt_fast(),jsonString); //send actual data
+    //serializeJson(randomData(),jsonString); //send random data for testing purposes
     //Serial.println(jsonString);
     webSocket.broadcastTXT(jsonString);
     jsonString.clear();
-    //vTaskDelay(  100 / portTICK_PERIOD_MS ); // sample speed ~30Hz
+    mymic.reset_samples();
+    mymic.sample();
+    mymic.calc_FFT();
+    mymic.FFT_to_bands();
+    serializeJson(mymic.FFT_to_bands_height(),jsonString);
+    webSocket.broadcastTXT(jsonString);
+    jsonString.clear();
     vTaskDelay(  33 / portTICK_PERIOD_MS ); // sample speed ~30Hz
     }
 }
@@ -208,6 +226,8 @@ void setup() {
     Serial.println(".");
     delay(500);  
   }
+
+  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))  Serial.println("STA Failed to configure");
   WiFi.mode(WIFI_STA);
   Serial.println(" IP address: ");
   Serial.println(WiFi.localIP());

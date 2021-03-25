@@ -39,7 +39,7 @@ void micFFT::FFT_to_bands()
   for (int i = 2; i < (SAMPLES/2); i++){       // Don't use sample 0 and only first SAMPLES/2 are usable. Each array element represents a frequency bin and its value the amplitude.
     if (vReal[i] > NOISE) {                    // Add a crude noise filter
 
-    //8 bands, 12kHz top band
+    /*//8 bands, 12kHz top band
       if (i<=3 )           bandValues[0]  += (int)vReal[i];
       if (i>3   && i<=6  ) bandValues[1]  += (int)vReal[i];
       if (i>6   && i<=13 ) bandValues[2]  += (int)vReal[i];
@@ -47,31 +47,32 @@ void micFFT::FFT_to_bands()
       if (i>27  && i<=55 ) bandValues[4]  += (int)vReal[i];
       if (i>55  && i<=112) bandValues[5]  += (int)vReal[i];
       if (i>112 && i<=229) bandValues[6]  += (int)vReal[i];
-      if (i>229          ) bandValues[7]  += (int)vReal[i];
+      if (i>229          ) bandValues[7]  += (int)vReal[i];*/
 
-    /*//16 bands, 12kHz top band
-      if (i<=2 )           bandValues[0]  += (int)vReal[i];
-      if (i>2   && i<=3  ) bandValues[1]  += (int)vReal[i];
-      if (i>3   && i<=5  ) bandValues[2]  += (int)vReal[i];
-      if (i>5   && i<=7  ) bandValues[3]  += (int)vReal[i];
-      if (i>7   && i<=9  ) bandValues[4]  += (int)vReal[i];
-      if (i>9   && i<=13 ) bandValues[5]  += (int)vReal[i];
-      if (i>13  && i<=18 ) bandValues[6]  += (int)vReal[i];
-      if (i>18  && i<=25 ) bandValues[7]  += (int)vReal[i];
-      if (i>25  && i<=36 ) bandValues[8]  += (int)vReal[i];
-      if (i>36  && i<=50 ) bandValues[9]  += (int)vReal[i];
-      if (i>50  && i<=69 ) bandValues[10] += (int)vReal[i];
-      if (i>69  && i<=97 ) bandValues[11] += (int)vReal[i];
-      if (i>97  && i<=135) bandValues[12] += (int)vReal[i];
-      if (i>135 && i<=189) bandValues[13] += (int)vReal[i];
-      if (i>189 && i<=264) bandValues[14] += (int)vReal[i];
-      if (i>264          ) bandValues[15] += (int)vReal[i];*/
+    //16 bands, 12kHz top band
+      if (i==1 )           bandValues[0]  += (int)vReal[i]; //40
+      if (i>1   && i<=2  ) bandValues[1]  += (int)vReal[i]; //59
+      if (i>2   && i<=3  ) bandValues[2]  += (int)vReal[i]; //86
+      if (i>3   && i<=4  ) bandValues[3]  += (int)vReal[i]; //125
+      if (i>4   && i<=6  ) bandValues[4]  += (int)vReal[i]; //183
+      if (i>6   && i<=8  ) bandValues[5]  += (int)vReal[i]; //268
+      if (i>8  && i<=12  ) bandValues[6]  += (int)vReal[i]; //392
+      if (i>12  && i<=18 ) bandValues[7]  += (int)vReal[i]; //576
+      if (i>18  && i<=26 ) bandValues[8]  += (int)vReal[i]; //838
+      if (i>26  && i<=39 ) bandValues[9]  += (int)vReal[i]; //1226
+      if (i>39  && i<=57 ) bandValues[10] += (int)vReal[i]; //1793
+      if (i>57  && i<=83 ) bandValues[11] += (int)vReal[i]; //2622
+      if (i>83  && i<=121) bandValues[12] += (int)vReal[i]; //3835
+      if (i>121 && i<=177) bandValues[13] += (int)vReal[i]; //5609
+      if (i>177 && i<=259) bandValues[14] += (int)vReal[i]; //8204
+      if (i>259          ) bandValues[15] += (int)vReal[i]; //12000 and more
     }
   }
 }
 
-void micFFT::FFT_to_bands_height()
+DynamicJsonDocument micFFT::FFT_to_bands_height()
 {
+  DynamicJsonDocument doc(512);
   for (byte band = 0; band < NUM_BANDS; band++) {
 
     // Scale the bars for the display
@@ -79,19 +80,27 @@ void micFFT::FFT_to_bands_height()
     if (barHeight > TOP) barHeight = TOP;
 
     // Small amount of averaging between frames
-    barHeight = ((oldBarHeights[band] * 1) + barHeight) / 2;
+    barHeight = ((oldBarHeights[band] * 1) + barHeight) / 1; //
 
     // Move peak up
     if (barHeight > peak[band]) {
       peak[band] = min(TOP, barHeight);
     }
+
+    doc["band"][band] = band;
+    doc["barHeight"][band] = barHeight;
+
+
+
     Serial.print("band:");
     Serial.print(band);
     Serial.print(" height:");
     Serial.print(barHeight);
     Serial.print(" ");
+
     }
     Serial.println(" ");
+    return doc;
 }
 
 
